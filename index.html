@@ -1,0 +1,1686 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>反应速度测试 - Reaction Time Test</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            user-select: none;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-bottom: 40px;
+        }
+
+        /* ── 顶部标题栏 ── */
+        .header {
+            text-align: center;
+            padding: 0;
+            margin-top: 56px;
+        }
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 300;
+            letter-spacing: 0.05em;
+            color: #ffffff;
+        }
+        .header .sub {
+            font-size: 0.85rem;
+            color: #888;
+            margin-top: 4px;
+        }
+
+        /* ── 主测试区域 ── */
+        .test-area {
+            width: 100%;
+            max-width: 800px;
+            min-height: 380px;
+            margin: 20px auto 0;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.15s ease;
+            cursor: pointer;
+            position: relative;
+            background: #1a1a2e;
+        }
+
+        /* ── 状态文字 ── */
+        .state-text {
+            font-size: 3rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-align: center;
+            text-shadow: 0 2px 12px rgba(0,0,0,0.3);
+            transition: all 0.2s;
+            white-space: pre-line;
+        }
+        .state-waiting { color: #ffffff; }
+        .state-ready   { color: #ffffff; }
+        .state-go      { color: #ffffff; }
+        .state-result  { color: #ffffff; }
+        .state-too-early { color: #ff6b6b; }
+
+        /* ── 进度指示器 ── */
+        .progress-bar {
+            display: flex; gap: 10px; margin-top: 28px;
+        }
+        .progress-dot {
+            width: 14px; height: 14px; border-radius: 50%;
+            background: #333; border: 2px solid #555;
+            transition: all 0.3s;
+        }
+        .progress-dot.done {
+            background: #4ecdc4; border-color: #4ecdc4;
+            box-shadow: 0 0 10px rgba(78,205,196,0.5);
+        }
+        .progress-dot.too-early {
+            background: #ff6b6b; border-color: #ff6b6b;
+            box-shadow: 0 0 10px rgba(255,107,107,0.5);
+        }
+        .progress-dot.current {
+            border-color: #fff;
+            box-shadow: 0 0 12px rgba(255,255,255,0.4);
+        }
+
+        /* ── 结果显示 ── */
+        .results-panel {
+            margin-top: 16px; min-height: 60px; text-align: center;
+        }
+        .result-time {
+            font-size: 4rem; font-weight: 700; color: #4ecdc4;
+            text-shadow: 0 0 20px rgba(78,205,196,0.4);
+        }
+        .result-time.slow  { color: #f9ca24; }
+        .result-time.fast  { color: #6ab04c; }
+        .result-unit { font-size: 1.2rem; color: #aaa; }
+
+        /* ── 最终结果 ── */
+        .final-result {
+            display: none;
+            text-align: center;
+            animation: fadeInUp 0.5s ease;
+            padding: 12px 0;
+        }
+        .final-result .avg-time {
+            font-size: 5rem; font-weight: 700; color: #4ecdc4;
+            text-shadow: 0 0 30px rgba(78,205,196,0.5);
+        }
+        .final-result .grade {
+            font-size: 1.4rem; margin-top: 8px; color: #aaa;
+        }
+        .final-result button {
+            margin-top: 20px; padding: 12px 36px; font-size: 1.1rem;
+            border: 2px solid #4ecdc4; background: transparent;
+            color: #4ecdc4; border-radius: 30px; cursor: pointer;
+            letter-spacing: 0.04em; transition: all 0.25s;
+        }
+        .final-result button:hover {
+            background: #4ecdc4; color: #1a1a2e;
+        }
+
+        /* ── 顶栏：语言选择 + 设备列表 ── */
+        .top-bar {
+            position: fixed; top: 0; left: 0; right: 0;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 6px;
+            padding: 7px 16px;
+            background: rgba(20, 20, 42, 0.96);
+            border-bottom: 1px solid #1f1f3a;
+            z-index: 10;
+            min-height: 42px;
+        }
+        .top-bar-left { display: flex; align-items: center; flex-shrink: 0; }
+        .top-bar-right {
+            display: flex; align-items: center; gap: 6px;
+            flex-wrap: wrap; flex-shrink: 1;
+            justify-content: flex-end;
+        }
+        .lang-select select {
+            background: #1a1a30;
+            color: #888; border: 1px solid #333;
+            border-radius: 14px; padding: 4px 10px;
+            font-size: 0.75rem; font-family: inherit;
+            cursor: pointer; outline: none;
+            transition: border-color 0.25s;
+        }
+        .lang-select select:hover,
+        .lang-select select:focus {
+            border-color: #4ecdc4; color: #ccc;
+        }
+        .device-pill {
+            padding: 4px 12px; border-radius: 16px;
+            font-size: 0.76rem; font-weight: 500;
+            border: 2px solid #2a2a4a;
+            background: #14142a; color: #555;
+            transition: all 0.25s; white-space: nowrap;
+            cursor: default;
+        }
+        .device-pill.active {
+            border-color: #4ecdc4; color: #4ecdc4;
+            background: rgba(78,205,196,0.08);
+            box-shadow: 0 0 14px rgba(78,205,196,0.18);
+        }
+
+        /* ──────────────────────────────────── */
+        /* ── 测试历史记录区域 ── */
+        /* ──────────────────────────────────── */
+        .history-section {
+            width: 100%;
+            max-width: 860px;
+            margin-top: 32px;
+            padding: 0 20px;
+        }
+        .history-section h2 {
+            font-size: 1.3rem;
+            font-weight: 400;
+            color: #ccc;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+            margin-bottom: 16px;
+            letter-spacing: 0.04em;
+        }
+        .history-empty {
+            text-align: center;
+            color: #555;
+            font-size: 0.9rem;
+            padding: 30px 0;
+        }
+
+        /* ── 每条记录卡片 ── */
+        .record-card {
+            background: #1f1f3a;
+            border: 1px solid #2a2a4a;
+            border-radius: 12px;
+            padding: 18px 22px;
+            margin-bottom: 16px;
+            transition: border-color 0.3s;
+        }
+        .record-card:hover {
+            border-color: #4ecdc4;
+        }
+        .record-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .record-index {
+            font-weight: 600;
+            font-size: 1rem;
+            color: #4ecdc4;
+        }
+        .record-time {
+            font-size: 0.8rem;
+            color: #666;
+        }
+        .record-controller {
+            font-size: 0.82rem;
+            color: #999;
+            background: #1a1a30;
+            padding: 3px 10px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .record-controller .icon { font-size: 1rem; }
+        .record-avg {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #f9ca24;
+        }
+
+        /* ── 5次数据展示表格 ── */
+        .record-trials {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        .trial-badge {
+            flex: 1;
+            min-width: 64px;
+            text-align: center;
+            background: #16162b;
+            border-radius: 8px;
+            padding: 8px 6px;
+        }
+        .trial-badge .trial-label {
+            font-size: 0.7rem;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        .trial-badge .trial-value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #ddd;
+        }
+        .trial-badge.fastest .trial-value { color: #6ab04c; }
+        .trial-badge.slowest .trial-value { color: #f9ca24; }
+
+        /* ── 折线图 Canvas ── */
+        .chart-container {
+            width: 100%;
+            margin-top: 8px;
+            background: #16162b;
+            border-radius: 10px;
+            padding: 10px 16px 6px 10px;
+            position: relative;
+        }
+        .chart-container canvas {
+            display: block;
+            width: 100%;
+            height: 160px;
+        }
+
+        /* ── 清空历史按钮 ── */
+        .clear-history-btn {
+            display: block;
+            margin: 20px auto 0;
+            padding: 8px 24px;
+            font-size: 0.8rem;
+            border: 1px solid #555;
+            background: transparent;
+            color: #777;
+            border-radius: 20px;
+            cursor: pointer;
+            letter-spacing: 0.04em;
+            transition: all 0.25s;
+        }
+        .clear-history-btn:hover {
+            border-color: #e74c3c;
+            color: #e74c3c;
+        }
+
+        /* ── 动画 ── */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes flashRed {
+            0%,100% { background-color: rgba(255,71,87,0); }
+            50%     { background-color: rgba(255,71,87,0.3); }
+        }
+        .flash-warning { animation: flashRed 0.5s ease; }
+
+        /* ── 响应式 ── */
+        @media (max-width: 600px) {
+            .state-text { font-size: 2rem; }
+            .test-area { min-height: 280px; }
+            .record-header { flex-direction: column; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 顶栏：语言 + 设备 -->
+    <div class="top-bar" id="topBar">
+        <div class="top-bar-left">
+            <span class="lang-select">
+                <select id="langSelect" title="Language">
+                    <option value="zh">中文</option>
+                    <option value="en">English</option>
+                    <option value="ja">日本語</option>
+                    <option value="fr">Français</option>
+                    <option value="pt">Português</option>
+                    <option value="ko">한국어</option>
+                    <option value="ru">Русский</option>
+                </select>
+            </span>
+        </div>
+        <div class="top-bar-right" id="deviceBar">
+            <span class="device-pill active">⌨️ 键盘</span>
+        </div>
+    </div>
+
+    <div class="header">
+        <h1 id="titleH1">&#x23F1; 反应速度测试</h1>
+        <p class="sub" id="titleSub">Reaction Time Test &mdash; 当屏幕变绿时按下手柄任意键</p>
+    </div>
+
+    <!-- 主测试区域 -->
+    <div class="test-area" id="testArea">
+        <p class="state-text state-waiting" id="stateText"></p>
+    </div>
+
+    <!-- 进度点 -->
+    <div class="progress-bar" id="progressBar">
+        <div class="progress-dot" id="dot0"></div>
+        <div class="progress-dot" id="dot1"></div>
+        <div class="progress-dot" id="dot2"></div>
+        <div class="progress-dot" id="dot3"></div>
+        <div class="progress-dot" id="dot4"></div>
+    </div>
+
+    <!-- 单次结果 -->
+    <div class="results-panel" id="resultsPanel"></div>
+
+    <!-- 最终结果 -->
+    <div class="final-result" id="finalResult">
+        <p style="color:#888; font-size:0.95rem;">你的平均反应速度</p>
+        <p class="avg-time" id="avgTime">--</p>
+        <p class="grade" id="grade"></p>
+        <button id="restartBtn">再来一次 &#x21BB;</button>
+    </div>
+
+    <!-- ══════════════════════════════════════ -->
+    <!-- ── 测试历史记录 + 折线图 ── -->
+    <!-- ══════════════════════════════════════ -->
+    <div class="history-section" id="historySection">
+        <h2 id="historyTitle">&#x1F4CA; 测试历史记录</h2>
+        <div id="historyList">
+            <p class="history-empty">暂无记录，完成一次测试后这里会显示结果</p>
+        </div>
+        <button class="clear-history-btn" id="clearHistoryBtn" style="display:none;">清空所有记录</button>
+    </div>
+
+    <script>
+    (function() {
+        // ────────── DOM 引用 ──────────
+        const testArea      = document.getElementById('testArea');
+        const stateText     = document.getElementById('stateText');
+        const resultsPanel  = document.getElementById('resultsPanel');
+        const finalResult   = document.getElementById('finalResult');
+        const avgTimeEl     = document.getElementById('avgTime');
+        const gradeEl       = document.getElementById('grade');
+        const deviceBar     = document.getElementById('deviceBar');
+        const historyList   = document.getElementById('historyList');
+        const clearBtn      = document.getElementById('clearHistoryBtn');
+        const langSelect    = document.getElementById('langSelect');
+
+        // ══════════════════════════════════════
+        // ── 多语言 (i18n) ──
+        // ══════════════════════════════════════
+        const LOCALE = {
+            zh: {
+                title: '⏱ 反应速度测试',
+                subtitle: 'Reaction Time Test — 当屏幕变绿时按下手柄任意键',
+                startPrompt: '按手柄任意键\n或点击此处开始',
+                waitGreen: '等待绿色…',
+                pressNow: '快按！',
+                tooEarly: '太早了！\n等绿色出现再按',
+                testDone: '测试完成！',
+                pressToRestart: '按 {0} 再来一次',
+                avgReaction: '你的平均反应速度',
+                retry: '再来一次 ↻',
+                historyTitle: '📊 测试历史记录',
+                historyEmpty: '暂无记录，完成一次测试后这里会显示结果',
+                clearHistory: '清空所有记录',
+                clearConfirm: '确定要清空所有测试记录吗？此操作不可撤销。',
+                noController: '未知手柄',
+                keyboard: '键盘',
+                keyboardMouse: '键盘 / 鼠标',
+                avgLabel: '平均',
+                trialLabel: '第{0}次',
+                fastestLabel: '最快',
+                slowestLabel: '最慢',
+                controllerUnknown: '型号未知',
+                btnConfirm: '确认键',
+                btnA: '🅐 键 (A)',
+                btnCross: '✕ 键 / ○ 键',
+                btnSpace: '空格键',
+                btnConfirmGeneric: '确认键 (A / ✕)',
+                grade_god: '⚡ 神级反应！你是闪电侠吗？',
+                grade_pro: '🏆 非常快！职业电竞选手级别',
+                grade_good: '👍 不错！高于平均水平',
+                grade_normal: '🙂 正常范围，继续练习可以更快',
+                grade_slow: '🐢 偏慢，多练练会进步的',
+                grade_sleep: '💤 你是不是在打瞌睡…',
+                xbox: 'Xbox',
+                playstation: 'PlayStation',
+                nintendo: 'Nintendo',
+                controller: '手柄',
+                wireless: '无线',
+                bluetooth: '蓝牙版',
+                elite: 'Elite',
+                adaptive: '自适应',
+                series: 'Series',
+                pro: 'Pro',
+                unknownModel: '[型号未知]',
+            },
+            en: {
+                title: '⏱ Reaction Time Test',
+                subtitle: 'Press any controller button when the screen turns green',
+                startPrompt: 'Press any button\nor click to start',
+                waitGreen: 'Wait for green…',
+                pressNow: 'PRESS NOW!',
+                tooEarly: 'Too early!\nWait for green',
+                testDone: 'Test complete!',
+                pressToRestart: 'Press {0} to retry',
+                avgReaction: 'Your average reaction time',
+                retry: 'Try Again ↻',
+                historyTitle: '📊 Test History',
+                historyEmpty: 'No records yet. Complete a test to see results here.',
+                clearHistory: 'Clear All Records',
+                clearConfirm: 'Are you sure you want to delete all test records? This cannot be undone.',
+                noController: 'Unknown Controller',
+                keyboard: 'Keyboard',
+                keyboardMouse: 'Keyboard / Mouse',
+                avgLabel: 'Avg',
+                trialLabel: 'Trial {0}',
+                fastestLabel: 'Fastest',
+                slowestLabel: 'Slowest',
+                controllerUnknown: 'Unknown Model',
+                btnConfirm: 'Confirm',
+                btnA: '🅐 Button (A)',
+                btnCross: '✕ Button / ○ Button',
+                btnSpace: 'Spacebar',
+                btnConfirmGeneric: 'Confirm (A / ✕)',
+                grade_god: '⚡ Godlike! Are you The Flash?',
+                grade_pro: '🏆 Very fast! Pro esports level',
+                grade_good: '👍 Good! Above average',
+                grade_normal: '🙂 Average. Keep practicing!',
+                grade_slow: '🐢 A bit slow. More practice will help.',
+                grade_sleep: '💤 Are you asleep?',
+                xbox: 'Xbox',
+                playstation: 'PlayStation',
+                nintendo: 'Nintendo',
+                controller: 'Controller',
+                wireless: 'Wireless',
+                bluetooth: 'Bluetooth',
+                elite: 'Elite',
+                adaptive: 'Adaptive',
+                series: 'Series',
+                pro: 'Pro',
+                unknownModel: '[Unknown Model]',
+            },
+            ja: {
+                title: '⏱ 反応速度テスト',
+                subtitle: '画面が緑に変わったらコントローラーのボタンを押してください',
+                startPrompt: 'ボタンを押すか\nクリックで開始',
+                waitGreen: '緑を待つ…',
+                pressNow: '押せ！',
+                tooEarly: '早すぎ！\n緑を待って',
+                testDone: 'テスト完了！',
+                pressToRestart: '{0} でもう一度',
+                avgReaction: 'あなたの平均反応速度',
+                retry: 'もう一度 ↻',
+                historyTitle: '📊 テスト履歴',
+                historyEmpty: 'まだ記録がありません。テストを完了するとここに表示されます。',
+                clearHistory: 'すべての記録を削除',
+                clearConfirm: 'すべてのテスト記録を削除してもよろしいですか？この操作は元に戻せません。',
+                noController: '不明なコントローラー',
+                keyboard: 'キーボード',
+                keyboardMouse: 'キーボード / マウス',
+                avgLabel: '平均',
+                trialLabel: '{0}回目',
+                fastestLabel: '最速',
+                slowestLabel: '最遅',
+                controllerUnknown: '不明なモデル',
+                btnConfirm: '決定',
+                btnA: '🅐 ボタン (A)',
+                btnCross: '✕ ボタン / ○ ボタン',
+                btnSpace: 'スペースキー',
+                btnConfirmGeneric: '決定 (A / ✕)',
+                grade_god: '⚡ 神レベル！フラッシュですか？',
+                grade_pro: '🏆 とても速い！プロeスポーツレベル',
+                grade_good: '👍 良い！平均以上',
+                grade_normal: '🙂 平均的。もっと練習しよう！',
+                grade_slow: '🐢 少し遅い。練習で速くなります。',
+                grade_sleep: '💤 寝てますか？',
+                xbox: 'Xbox',
+                playstation: 'PlayStation',
+                nintendo: 'Nintendo',
+                controller: 'コントローラー',
+                wireless: 'ワイヤレス',
+                bluetooth: 'Bluetooth',
+                elite: 'Elite',
+                adaptive: 'アダプティブ',
+                series: 'Series',
+                pro: 'Pro',
+                unknownModel: '[不明なモデル]',
+            },
+            fr: {
+                title: '⏱ Test de Temps de Réaction',
+                subtitle: 'Appuyez sur un bouton quand l\'écran devient vert',
+                startPrompt: 'Appuyez ou\ncliquez pour commencer',
+                waitGreen: 'Attendez le vert…',
+                pressNow: 'APPUYEZ !',
+                tooEarly: 'Trop tôt !\nAttendez le vert',
+                testDone: 'Test terminé !',
+                pressToRestart: 'Appuyez sur {0} pour recommencer',
+                avgReaction: 'Votre temps de réaction moyen',
+                retry: 'Réessayer ↻',
+                historyTitle: '📊 Historique des tests',
+                historyEmpty: 'Aucun résultat. Terminez un test pour voir les résultats ici.',
+                clearHistory: 'Effacer tout l\'historique',
+                clearConfirm: 'Êtes-vous sûr de vouloir supprimer tous les résultats ? Cette action est irréversible.',
+                noController: 'Manette inconnue',
+                keyboard: 'Clavier',
+                keyboardMouse: 'Clavier / Souris',
+                avgLabel: 'Moy',
+                trialLabel: 'Essai {0}',
+                fastestLabel: 'Le + rapide',
+                slowestLabel: 'Le + lent',
+                controllerUnknown: 'Modèle inconnu',
+                btnConfirm: 'Confirmer',
+                btnA: '🅐 Bouton (A)',
+                btnCross: 'Bouton ✕ / Bouton ○',
+                btnSpace: 'Barre d\'espace',
+                btnConfirmGeneric: 'Confirmer (A / ✕)',
+                grade_god: '⚡ Surhumain ! Êtes-vous Flash ?',
+                grade_pro: '🏆 Très rapide ! Niveau pro esport',
+                grade_good: '👍 Bien ! Au-dessus de la moyenne',
+                grade_normal: '🙂 Dans la moyenne. Continuez à vous entraîner !',
+                grade_slow: '🐢 Un peu lent. L\'entraînement aide.',
+                grade_sleep: '💤 Vous dormez ?',
+                xbox: 'Xbox',
+                playstation: 'PlayStation',
+                nintendo: 'Nintendo',
+                controller: 'Manette',
+                wireless: 'Sans fil',
+                bluetooth: 'Bluetooth',
+                elite: 'Elite',
+                adaptive: 'Adaptative',
+                series: 'Series',
+                pro: 'Pro',
+                unknownModel: '[Modèle inconnu]',
+            },
+            pt: {
+                title: '⏱ Teste de Tempo de Reação',
+                subtitle: 'Pressione qualquer botão quando a tela ficar verde',
+                startPrompt: 'Pressione ou\nclique para começar',
+                waitGreen: 'Aguarde o verde…',
+                pressNow: 'APERTE!',
+                tooEarly: 'Muito cedo!\nAguarde o verde',
+                testDone: 'Teste concluído!',
+                pressToRestart: 'Pressione {0} para repetir',
+                avgReaction: 'Seu tempo médio de reação',
+                retry: 'Tentar Novamente ↻',
+                historyTitle: '📊 Histórico de Testes',
+                historyEmpty: 'Nenhum registro. Complete um teste para ver os resultados.',
+                clearHistory: 'Limpar Todos os Registros',
+                clearConfirm: 'Tem certeza que deseja excluir todos os registros? Esta ação não pode ser desfeita.',
+                noController: 'Controle Desconhecido',
+                keyboard: 'Teclado',
+                keyboardMouse: 'Teclado / Mouse',
+                avgLabel: 'Média',
+                trialLabel: 'Tentativa {0}',
+                fastestLabel: 'Mais Rápido',
+                slowestLabel: 'Mais Lento',
+                controllerUnknown: 'Modelo Desconhecido',
+                btnConfirm: 'Confirmar',
+                btnA: '🅐 Botão (A)',
+                btnCross: 'Botão ✕ / Botão ○',
+                btnSpace: 'Barra de Espaço',
+                btnConfirmGeneric: 'Confirmar (A / ✕)',
+                grade_god: '⚡ Sobre-humano! Você é o Flash?',
+                grade_pro: '🏆 Muito rápido! Nível pro de esports',
+                grade_good: '👍 Bom! Acima da média',
+                grade_normal: '🙂 Na média. Continue praticando!',
+                grade_slow: '🐢 Um pouco lento. Treinar ajuda.',
+                grade_sleep: '💤 Você está dormindo?',
+                xbox: 'Xbox',
+                playstation: 'PlayStation',
+                nintendo: 'Nintendo',
+                controller: 'Controle',
+                wireless: 'Sem fio',
+                bluetooth: 'Bluetooth',
+                elite: 'Elite',
+                adaptive: 'Adaptativo',
+                series: 'Series',
+                pro: 'Pro',
+                unknownModel: '[Modelo Desconhecido]',
+            },
+            ko: {
+                title: '⏱ 반응 속도 테스트',
+                subtitle: '화면이 녹색으로 바뀌면 컨트롤러 버튼을 누르세요',
+                startPrompt: '버튼을 누르거나\n클릭하여 시작',
+                waitGreen: '녹색을 기다리세요…',
+                pressNow: '누르세요!',
+                tooEarly: '너무 빨라요!\n녹색을 기다리세요',
+                testDone: '테스트 완료!',
+                pressToRestart: '{0} 키로 다시 시작',
+                avgReaction: '평균 반응 속도',
+                retry: '다시 하기 ↻',
+                historyTitle: '📊 테스트 기록',
+                historyEmpty: '아직 기록이 없습니다. 테스트를 완료하면 여기에 표시됩니다.',
+                clearHistory: '모든 기록 삭제',
+                clearConfirm: '모든 테스트 기록을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
+                noController: '알 수 없는 컨트롤러',
+                keyboard: '키보드',
+                keyboardMouse: '키보드 / 마우스',
+                avgLabel: '평균',
+                trialLabel: '{0}회차',
+                fastestLabel: '최고',
+                slowestLabel: '최저',
+                controllerUnknown: '알 수 없는 모델',
+                btnConfirm: '확인',
+                btnA: '🅐 버튼 (A)',
+                btnCross: '✕ 버튼 / ○ 버튼',
+                btnSpace: '스페이스바',
+                btnConfirmGeneric: '확인 (A / ✕)',
+                grade_god: '⚡ 신급 반응! 플래시인가요?',
+                grade_pro: '🏆 매우 빠름! 프로 e스포츠 수준',
+                grade_good: '👍 좋음! 평균 이상',
+                grade_normal: '🙂 평균. 계속 연습하세요!',
+                grade_slow: '🐢 조금 느림. 연습하면 빨라집니다.',
+                grade_sleep: '💤 졸고 계신가요?',
+                xbox: 'Xbox',
+                playstation: 'PlayStation',
+                nintendo: 'Nintendo',
+                controller: '컨트롤러',
+                wireless: '무선',
+                bluetooth: '블루투스',
+                elite: 'Elite',
+                adaptive: '어댑티브',
+                series: 'Series',
+                pro: 'Pro',
+                unknownModel: '[알 수 없는 모델]',
+            },
+            ru: {
+                title: '⏱ Тест на реакцию',
+                subtitle: 'Нажмите любую кнопку, когда экран станет зелёным',
+                startPrompt: 'Нажмите кнопку\nили кликните для старта',
+                waitGreen: 'Ждите зелёный…',
+                pressNow: 'ЖМИ!',
+                tooEarly: 'Слишком рано!\nЖдите зелёный',
+                testDone: 'Тест завершён!',
+                pressToRestart: 'Нажмите {0} для повтора',
+                avgReaction: 'Ваше среднее время реакции',
+                retry: 'Попробовать снова ↻',
+                historyTitle: '📊 История тестов',
+                historyEmpty: 'Пока нет записей. Пройдите тест, чтобы увидеть результаты.',
+                clearHistory: 'Очистить все записи',
+                clearConfirm: 'Вы уверены, что хотите удалить все записи? Это действие необратимо.',
+                noController: 'Неизвестный контроллер',
+                keyboard: 'Клавиатура',
+                keyboardMouse: 'Клавиатура / Мышь',
+                avgLabel: 'Сред',
+                trialLabel: 'Попытка {0}',
+                fastestLabel: 'Лучшая',
+                slowestLabel: 'Худшая',
+                controllerUnknown: 'Неизвестная модель',
+                btnConfirm: 'Подтвердить',
+                btnA: '🅐 Кнопка (A)',
+                btnCross: 'Кнопка ✕ / Кнопка ○',
+                btnSpace: 'Пробел',
+                btnConfirmGeneric: 'Подтвердить (A / ✕)',
+                grade_god: '⚡ Божественно! Вы Флэш?',
+                grade_pro: '🏆 Очень быстро! Уровень киберспорта',
+                grade_good: '👍 Хорошо! Выше среднего',
+                grade_normal: '🙂 Средне. Тренируйтесь ещё!',
+                grade_slow: '🐢 Медленно. Тренировка поможет.',
+                grade_sleep: '💤 Вы спите?',
+                xbox: 'Xbox',
+                playstation: 'PlayStation',
+                nintendo: 'Nintendo',
+                controller: 'Контроллер',
+                wireless: 'Беспроводной',
+                bluetooth: 'Bluetooth',
+                elite: 'Elite',
+                adaptive: 'Адаптивный',
+                series: 'Series',
+                pro: 'Pro',
+                unknownModel: '[Неизвестная модель]',
+            },
+        };
+
+        let currentLocale = 'zh';
+
+        /** 获取翻译，支持 {0}, {1} 占位符 */
+        function t(key, ...args) {
+            const dict = LOCALE[currentLocale] || LOCALE['zh'];
+            let text = dict[key];
+            if (text === undefined) {
+                // fallback to zh
+                text = (LOCALE['zh'][key]) || ('???' + key + '???');
+            }
+            for (let i = 0; i < args.length; i++) {
+                text = text.replace('{' + i + '}', args[i]);
+            }
+            return text;
+        }
+
+        /** 切换语言 */
+        function setLocale(locale) {
+            if (!LOCALE[locale]) return;
+            currentLocale = locale;
+            localStorage.setItem('reaction_test_locale', locale);
+            langSelect.value = locale;
+
+            // 更新静态 HTML 元素
+            document.getElementById('titleH1').textContent = t('title');
+            document.getElementById('titleSub').textContent = t('subtitle');
+            document.getElementById('historyTitle').textContent = '📊 ' + t('historyTitle');
+            document.getElementById('clearHistoryBtn').textContent = t('clearHistory');
+
+            // 更新动态 UI
+            updateDeviceBar();
+            updateStateText();
+            updateFinalResultText();
+            renderHistory();
+
+            // 更新 gamepad 显示名
+            for (let [gi, info] of gamepadInfoMap) {
+                info.displayName = localizeControllerDisplayName(info);
+            }
+            updateDeviceBar();
+        }
+
+        /** 更新 stateText（如果当前有固定文案的话） */
+        function updateStateText() {
+            // 只在 IDLE 且不显示结果时更新提示文字
+            if (state === STATE.IDLE && !resultsShowing) {
+                stateText.textContent = t('startPrompt');
+            }
+        }
+
+        /** 更新 final result 区域的静态文字 */
+        function updateFinalResultText() {
+            const avgP = finalResult.querySelector('p');
+            if (avgP) avgP.textContent = t('avgReaction');
+            const btn = document.getElementById('restartBtn');
+            if (btn) btn.innerHTML = t('retry');
+        }
+
+        /** 将手柄显示名本地化 */
+        function localizeControllerDisplayName(info) {
+            // 如果已经是 HID 精确名或包含 VID/PID 格式，用 localizeModelName
+            return localizeModelName(info.displayName);
+        }
+
+        /** 将型号名中的通用描述词翻译为当前语言 */
+        function localizeModelName(name) {
+            if (!name) return t('noController');
+            let result = name;
+
+            // 翻译"手柄"→Controller / コントローラー 等
+            result = result.replace(/手柄/g, t('controller'));
+            result = result.replace(/コントローラー/g, t('controller'));
+            result = result.replace(/Manette/g, t('controller'));
+            result = result.replace(/Controle/g, t('controller'));
+            result = result.replace(/컨트롤러/g, t('controller'));
+            result = result.replace(/Контроллер/g, t('controller'));
+
+            // 无线 → Wireless / ワイヤレス 等
+            result = result.replace(/无线/g, t('wireless'));
+            result = result.replace(/ワイヤレス/g, t('wireless'));
+            result = result.replace(/Sans fil/g, t('wireless'));
+            result = result.replace(/Sem fio/g, t('wireless'));
+            result = result.replace(/무선/g, t('wireless'));
+            result = result.replace(/Беспроводной/g, t('wireless'));
+
+            // 蓝牙版 → Bluetooth
+            result = result.replace(/蓝牙版/g, t('bluetooth'));
+
+            // 自适应 → Adaptive
+            result = result.replace(/自适应/g, t('adaptive'));
+            result = result.replace(/アダプティブ/g, t('adaptive'));
+            result = result.replace(/Adaptative/g, t('adaptive'));
+            result = result.replace(/Adaptativo/g, t('adaptive'));
+            result = result.replace(/어댑티브/g, t('adaptive'));
+            result = result.replace(/Адаптивный/g, t('adaptive'));
+
+            // 键盘/鼠标相关
+            result = result.replace(/键盘 \/ 鼠标/g, t('keyboardMouse'));
+            result = result.replace(/键盘/g, t('keyboard'));
+
+            // Unknown / 型号未知
+            result = result.replace(/未知手柄/g, t('noController'));
+            result = result.replace(/型号未知/g, t('controllerUnknown'));
+            result = result.replace(/Unknown Controller/g, t('noController'));
+            result = result.replace(/Unknown Model/g, t('controllerUnknown'));
+            result = result.replace(/不明なコントローラー/g, t('noController'));
+            result = result.replace(/不明なモデル/g, t('controllerUnknown'));
+
+            return result;
+        }
+
+        /** 根据系统语言检测初始 locale */
+        function detectLocale() {
+            // 优先用 localStorage 保存的语言
+            const saved = localStorage.getItem('reaction_test_locale');
+            if (saved && LOCALE[saved]) return saved;
+
+            const lang = (navigator.language || 'zh').toLowerCase();
+            if (lang.startsWith('zh')) return 'zh';
+            if (lang.startsWith('ja')) return 'ja';
+            if (lang.startsWith('fr')) return 'fr';
+            if (lang.startsWith('pt')) return 'pt';
+            if (lang.startsWith('ko')) return 'ko';
+            if (lang.startsWith('ru')) return 'ru';
+            if (lang.startsWith('en')) return 'en';
+            return 'zh'; // fallback
+        }
+
+        // ── 语言切换事件 ──
+        langSelect.addEventListener('change', () => {
+            setLocale(langSelect.value);
+        });
+
+        // ────────── 状态机 ──────────
+        const STATE = { IDLE: 'idle', READY: 'ready', WAITING: 'waiting', GO: 'go', RESULT: 'result' };
+        const TOTAL_TRIALS = 5;
+
+        let state         = STATE.IDLE;
+        let trialIndex    = 0;
+        let reactionTimes = [];
+        let goTimestamp   = null;
+        let waitTimeout   = null;
+        let pollInterval  = null;
+        let tooEarly      = false;
+        let inputUsed           = 'keyboard'; // 'gamepad' | 'keyboard' | 'mouse'
+        let resultsShowing      = false;      // 是否正在展示最终结果
+
+        // ── 多设备支持 ──
+        let gamepadInfoMap      = new Map();   // index → { rawId, displayName }
+        let knownButtonsMap     = new Map();   // index → Set of button indices
+        let activeGamepadIndex  = -1;           // 最后按下的手柄 index
+        let activeDevice        = 'keyboard';   // 'keyboard' | 'mouse' | 'gamepad'
+        let anyGamepadConnected = false;
+
+        // ────────── 历史记录存储（localStorage） ──────────
+        const STORAGE_KEY = 'reaction_test_history';
+
+        function loadHistory() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                return raw ? JSON.parse(raw) : [];
+            } catch (e) { return []; }
+        }
+
+        function saveHistory(records) {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+            } catch (e) { /* 存储满则静默失败 */ }
+        }
+
+        // ────────── 手柄轮询 ──────────
+        function startPolling() {
+            if (pollInterval) return;
+            pollInterval = setInterval(pollGamepad, 16);
+        }
+
+        /** 获取当前活跃手柄的 raw ID，没有则返回空字符串 */
+        function getActiveControllerRawId() {
+            if (activeGamepadIndex >= 0 && gamepadInfoMap.has(activeGamepadIndex)) {
+                return gamepadInfoMap.get(activeGamepadIndex).rawId;
+            }
+            // 兜底：返回第一个已连接手柄
+            for (let [idx, info] of gamepadInfoMap) {
+                return info.rawId;
+            }
+            return '';
+        }
+
+        /** 获取当前活跃手柄的显示名称 */
+        function getActiveControllerDisplayName() {
+            if (activeGamepadIndex >= 0 && gamepadInfoMap.has(activeGamepadIndex)) {
+                return gamepadInfoMap.get(activeGamepadIndex).displayName;
+            }
+            for (let [idx, info] of gamepadInfoMap) {
+                return info.displayName;
+            }
+            return '';
+        }
+
+        function pollGamepad() {
+            const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+            let anyFound = false;
+
+            // 遍历所有手柄槽位（用索引遍历，确保 Map 键对应正确）
+            for (let gi = 0; gi < gamepads.length; gi++) {
+                const g = gamepads[gi];
+                if (!g) continue;
+                anyFound = true;
+
+                // ── 新检测到的手柄，注册到 Map ──
+                if (!gamepadInfoMap.has(gi)) {
+                    const rawId = g.id;
+                    const vidPid = extractVidPid(rawId.toLowerCase());
+                    const displayName = getShortControllerName(rawId);
+                    gamepadInfoMap.set(gi, { rawId, displayName, vidPid });
+                    knownButtonsMap.set(gi, new Set());
+                    console.log('🎮 手柄 #' + gi + ' 已注册: ' + displayName + (vidPid ? ' [' + vidPid + ']' : ''));
+                    // 如果还没有活跃手柄，默认设为第一个
+                    if (activeGamepadIndex < 0 || !gamepadInfoMap.has(activeGamepadIndex)) {
+                        activeGamepadIndex = gi;
+                    }
+                    anyGamepadConnected = true;
+                    updateDeviceBar();
+                }
+
+                // ── 构建当前帧按下的按钮集合 ──
+                const currentButtons = new Set();
+                for (let i = 0; i < g.buttons.length; i++) {
+                    if (g.buttons[i].pressed) currentButtons.add(i);
+                }
+
+                const prevButtons = knownButtonsMap.get(gi) || new Set();
+
+                // ── 边沿检测：找出本帧新按下的按钮 ──
+                for (let btnIdx of currentButtons) {
+                    if (!prevButtons.has(btnIdx)) {
+                        // 按钮刚按下 → 切换活跃手柄 + 标记 gamepad 为活跃设备
+                        if (activeGamepadIndex !== gi || activeDevice !== 'gamepad') {
+                            activeGamepadIndex = gi;
+                            activeDevice = 'gamepad';
+                            updateDeviceBar();
+                        }
+                        inputUsed = 'gamepad';
+                        // 结果显示状态下只有确认键可以重新开始
+                        if (state === STATE.IDLE && resultsShowing) {
+                            if (btnIdx === 0 || btnIdx === 1) {
+                                handlePress();
+                            }
+                        } else {
+                            handlePress();
+                        }
+                        knownButtonsMap.set(gi, new Set(currentButtons));
+                        return; // 一帧只处理一次按下
+                    }
+                }
+
+                // 更新本手柄的按钮状态
+                knownButtonsMap.set(gi, new Set(currentButtons));
+            }
+
+            // ── 检测断连：清理已经不存在的 gamepad ──
+            for (let [gi, info] of gamepadInfoMap) {
+                if (gi >= gamepads.length || !gamepads[gi]) {
+                    console.log('🎮 手柄 #' + gi + ' 已断开: ' + info.displayName);
+                    gamepadInfoMap.delete(gi);
+                    knownButtonsMap.delete(gi);
+                    if (activeGamepadIndex === gi) {
+                        // 切换到另一个还连着的手柄
+                        activeGamepadIndex = gamepadInfoMap.size > 0 ? gamepadInfoMap.keys().next().value : -1;
+                    }
+                    updateDeviceBar();
+                }
+            }
+
+            if (!anyFound && anyGamepadConnected) {
+                anyGamepadConnected = false;
+                activeGamepadIndex = -1;
+                gamepadInfoMap.clear();
+                knownButtonsMap.clear();
+                updateDeviceBar();
+            }
+        }
+
+        /** 渲染顶部设备栏：键盘 + 所有手柄，高亮最后使用的设备 */
+        function updateDeviceBar() {
+            let html = '';
+
+            // ── 键盘 pill ──
+            const kbActive = (activeDevice === 'keyboard' || activeDevice === 'mouse');
+            html += '<span class="device-pill' + (kbActive ? ' active' : '') + '" title="' + t('keyboard') + ' / ' + t('btnSpace') + '">⌨️ ' + t('keyboard') + '</span>';
+
+            // ── 手柄 pills ──
+            for (let [gi, info] of gamepadInfoMap) {
+                const isActive = (activeDevice === 'gamepad' && gi === activeGamepadIndex);
+                const locName = localizeModelName(info.displayName);
+                html += '<span class="device-pill' + (isActive ? ' active' : '') + '" title="' + info.rawId + '">🎮 ' + locName + '</span>';
+            }
+
+            deviceBar.innerHTML = html;
+        }
+
+        function getShortControllerName(rawId) {
+            // 返回详细的手柄名称，区分不同型号
+            if (!rawId) return t('noController');
+            const id = rawId.trim();
+            const lower = id.toLowerCase();
+
+            // 提取 VID/PID（支持多种格式）
+            const vidPid = extractVidPid(lower);
+
+            // ── Xbox 系列 ──
+            if (lower.includes('xbox') || lower.includes('xinput')) {
+                // ① VID/PID 精确查表（最可靠，Windows 上名字不可信）
+                if (vidPid) {
+                    const xboxMap = {
+                        '045e:0b13': 'Xbox Series X|S 手柄',
+                        '045e:0b12': 'Xbox Series X|S 手柄',
+                        '045e:0b22': 'Xbox Series X|S 手柄 (2024)',
+                        '045e:0b20': 'Xbox Wireless 手柄 (2020)',
+                        '045e:02fd': 'Xbox Wireless 手柄 (2020)',
+                        '045e:0b05': 'Xbox Elite 无线手柄 Series 2',
+                        '045e:0b00': 'Xbox Elite 无线手柄',
+                        '045e:02ea': 'Xbox One S 手柄 (蓝牙版)',
+                        '045e:02e0': 'Xbox One S 手柄 (蓝牙版)',
+                        '045e:02d1': 'Xbox One 手柄',
+                        '045e:02dd': 'Xbox One 手柄',
+                        '045e:02e3': 'Xbox One 手柄',
+                        '045e:02ff': 'Xbox One 手柄',
+                        '045e:028e': 'Xbox 360 手柄',
+                        '045e:028f': 'Xbox 360 手柄',
+                        '045e:02a9': 'Xbox 360 无线手柄',
+                        '045e:02a0': 'Xbox 360 无线手柄 (BigBen)',
+                        '045e:0719': 'Xbox 360 无线手柄',
+                        '045e:0b0a': 'Xbox 自适应手柄',
+                        '045e:0b21': 'Xbox Series X|S 手柄 (2024 FW)',
+                    };
+                    if (xboxMap[vidPid]) return xboxMap[vidPid];
+                    // VID/PID 找到了但不在表中 → 显示 VID/PID，不用不可靠的关键字猜测
+                    return 'Xbox 手柄 [' + vidPid + ']';
+                }
+                // ② 没有 VID/PID → 关键字兜底（但 Windows XInput 把所有 Xbox 都叫
+                //    "Xbox 360 Controller"，所以 "360" 关键字是完全不可靠的）
+                if (lower.includes('elite')) {
+                    if (lower.includes('series 2') || lower.includes('series2')) return 'Xbox Elite 无线手柄 Series 2';
+                    return 'Xbox Elite 无线手柄';
+                }
+                if (lower.includes('series x') || lower.includes('series s')) return 'Xbox Series X|S 手柄';
+                if (lower.includes('adaptive')) return 'Xbox 自适应手柄';
+                if (lower.includes('one') && !lower.includes('series'))      return 'Xbox One 手柄';
+                // ③ 完全没有识别信息 — 不猜测，显示"型号未知"
+                const bare = id.replace(/\s*\(STANDARD GAMEPAD.*\)/i, '').substring(0, 35);
+                return 'Xbox 手柄 [' + bare + ']';
+            }
+
+            // ── PlayStation 系列 ──
+            if (lower.includes('playstation') || lower.includes('dualsense') || lower.includes('dualshock') || lower.includes('ps5') || lower.includes('ps4') || lower.includes('ps3')) {
+                // ① VID/PID 精确查表
+                if (vidPid) {
+                    const psMap = {
+                        '054c:0ce6': 'PlayStation DualSense 手柄 (PS5)',
+                        '054c:0df2': 'PlayStation DualSense Edge 手柄',
+                        '054c:09cc': 'PlayStation DualShock 4 手柄 (PS4)',
+                        '054c:05c4': 'PlayStation DualShock 4 手柄 (PS4 v2)',
+                        '054c:0ba0': 'PlayStation DualShock 4 手柄 (PS4)',
+                        '054c:0268': 'PlayStation DualShock 3 手柄 (PS3)',
+                    };
+                    if (psMap[vidPid]) return psMap[vidPid];
+                }
+                // ② 关键字兜底
+                if (lower.includes('dualsense edge')) return 'PlayStation DualSense Edge 手柄';
+                if (lower.includes('dualsense'))      return 'PlayStation DualSense 手柄 (PS5)';
+                if (lower.includes('dualshock 4'))    return 'PlayStation DualShock 4 手柄 (PS4)';
+                if (lower.includes('dualshock 3') || lower.includes('sixaxis')) return 'PlayStation DualShock 3 手柄 (PS3)';
+                if (lower.includes('dualshock'))      return 'PlayStation DualShock 手柄';
+                return 'PlayStation 手柄 (' + id.replace(/\s*\(STANDARD GAMEPAD.*\)/i, '').substring(0, 35) + ')';
+            }
+
+            // ── Nintendo 系列 ──
+            if (lower.includes('nintendo') || lower.includes('switch') || lower.includes('pro controller')) {
+                // ① VID/PID 精确查表
+                if (vidPid) {
+                    const nsMap = {
+                        '057e:2009': 'Nintendo Switch Pro 手柄',
+                        '057e:200e': 'Nintendo Switch Pro 手柄 (修订版)',
+                        '057e:2006': 'Nintendo Switch Joy-Con (左)',
+                        '057e:2007': 'Nintendo Switch Joy-Con (右)',
+                        '057e:2017': 'Nintendo Switch N64 手柄',
+                        '057e:2019': 'Nintendo Switch SNES 手柄',
+                        '057e:201b': 'Nintendo Switch NES 手柄',
+                        '057e:2003': 'Nintendo Switch Online 手柄',
+                    };
+                    if (nsMap[vidPid]) return nsMap[vidPid];
+                }
+                // ② 关键字兜底
+                if (lower.includes('joy-con')) {
+                    if (lower.includes('left')  || lower.includes('(l)'))  return 'Nintendo Switch Joy-Con (左)';
+                    if (lower.includes('right') || lower.includes('(r)')) return 'Nintendo Switch Joy-Con (右)';
+                    return 'Nintendo Switch Joy-Con';
+                }
+                if (lower.includes('snes'))              return 'Nintendo SNES 手柄 (Switch Online)';
+                if (lower.includes('nes'))               return 'Nintendo NES 手柄 (Switch Online)';
+                if (lower.includes('n64'))               return 'Nintendo N64 手柄 (Switch Online)';
+                if (lower.includes('pro controller'))    return 'Nintendo Switch Pro 手柄';
+                if (lower.includes('switch'))            return 'Nintendo Switch 手柄';
+                return 'Nintendo 手柄 (' + id.replace(/\s*\(STANDARD GAMEPAD.*\)/i, '').substring(0, 35) + ')';
+            }
+
+            // ── 其他常见手柄 ──
+            if (lower.includes('stadia'))                return 'Google Stadia 手柄';
+            if (lower.includes('steam') && lower.includes('controller')) return 'Steam Controller';
+            if (lower.includes('luna'))                  return 'Amazon Luna 手柄';
+            if (lower.includes('8bitdo') || lower.includes('8bit do')) {
+                if (lower.includes('pro 2'))    return '8BitDo Pro 2 手柄';
+                if (lower.includes('sn30'))     return '8BitDo SN30 手柄';
+                if (lower.includes('ultimate')) return '8BitDo Ultimate 手柄';
+                return '8BitDo 手柄 (' + id.replace(/\s*\(STANDARD GAMEPAD.*\)/i, '').substring(0, 30) + ')';
+            }
+            if (lower.includes('gulikit')) {
+                if (lower.includes('king kong')) return 'GuliKit King Kong 手柄';
+                return 'GuliKit 手柄';
+            }
+            if (lower.includes('powera'))               return 'PowerA 手柄';
+            if (lower.includes('razer'))                 return 'Razer 手柄';
+            if (lower.includes('logitech')) {
+                if (lower.includes('f710')) return 'Logitech F710 手柄';
+                if (lower.includes('f310')) return 'Logitech F310 手柄';
+                return 'Logitech 手柄';
+            }
+
+            // ── 通用 fallback：去除 (STANDARD GAMEPAD ...) 后缀 ──
+            const cleaned = id.replace(/\s*\(STANDARD GAMEPAD.*\)/i, '').replace(/\s*Vendor: \w+ Product: \w+/i, '').trim();
+            if (cleaned.length > 0 && cleaned.length < 50) return cleaned;
+            return id.length > 45 ? id.substring(0, 45) + '…' : id;
+        }
+
+        /** 从手柄 ID 中提取 VID/PID，支持多种格式，返回 "XXXX:YYYY" 或 null */
+        function extractVidPid(lowerStr) {
+            // 格式1: "... Vendor: XXXX Product: YYYY ..." (Chromium/Edge on Windows)
+            let m = lowerStr.match(/vendor:\s*([0-9a-f]{4})\s*product:\s*([0-9a-f]{4})/i);
+            if (m) return m[1] + ':' + m[2];
+            // 格式2: "... VID_XXXX&PID_YYYY ..." (Firefox / raw HID)
+            m = lowerStr.match(/vid[:\s_-]?([0-9a-f]{4})[&\s_-]+pid[:\s_-]?([0-9a-f]{4})/i);
+            if (m) return m[1] + ':' + m[2];
+            // 格式3: 16进制 "XXXX:YYYY" 直接出现在字符串中
+            m = lowerStr.match(/\b([0-9a-f]{4}):([0-9a-f]{4})\b/i);
+            if (m && (m[1] === '045e' || m[1] === '054c' || m[1] === '057e' || m[1] === '28de' || m[1] === '0e6f')) {
+                return m[1] + ':' + m[2];
+            }
+            return null;
+        }
+
+        function getConfirmButtonName(ctrlDisplayName) {
+            if (!ctrlDisplayName) return t('btnSpace');
+            const lower = ctrlDisplayName.toLowerCase();
+            if (lower.includes('nintendo') || lower.includes('switch') || lower.includes('joy-con')) {
+                return t('btnA');
+            }
+            if (lower.includes('playstation') || lower.includes('dualsense') || lower.includes('dualshock')) {
+                return t('btnCross');
+            }
+            if (lower.includes('xbox') || lower.includes('xinput')) {
+                return t('btnA');
+            }
+            if (lower.includes(t('controller').toLowerCase()) || lower.includes('controller') || lower.includes('gamepad')
+                || lower.includes('8bitdo') || lower.includes('gulikit') || lower.includes('powera')
+                || lower.includes('razer') || lower.includes('logitech') || lower.includes('stadia')
+                || lower.includes('steam') || lower.includes('luna')) {
+                return t('btnConfirmGeneric');
+            }
+            return t('btnSpace');
+        }
+
+        // ────────── 事件监听 ──────────
+        window.addEventListener('gamepadconnected', (e) => {
+            // pollGamepad 会自动注册新手柄，这里只需确保轮询在跑
+            startPolling();
+            const vidPid = extractVidPid(e.gamepad.id.toLowerCase());
+            console.log('🎮 手柄已连接 (index=' + e.gamepad.index + ')');
+            console.log('  原始 ID:', e.gamepad.id);
+            console.log('  VID/PID:', vidPid || '（未在 ID 中找到）');
+            console.log('  识别为:', getShortControllerName(e.gamepad.id));
+        });
+
+        window.addEventListener('gamepaddisconnected', (e) => {
+            // pollGamepad 下一帧会自动清理断连的手柄
+            console.log('🎮 手柄已断开 (index=' + e.gamepad.index + ')');
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'Enter') {
+                e.preventDefault();
+                inputUsed = 'keyboard';
+                activeDevice = 'keyboard';
+                updateDeviceBar();
+                handlePress();
+            }
+        });
+
+        testArea.addEventListener('click', (e) => {
+            e.stopPropagation();
+            inputUsed = 'mouse';
+            activeDevice = 'mouse';
+            updateDeviceBar();
+            handlePress();
+        });
+
+        document.addEventListener('click', (e) => {
+            if (state === STATE.IDLE && e.target !== testArea && !testArea.contains(e.target)
+                && !e.target.closest('.history-section') && !e.target.closest('.final-result')) {
+                inputUsed = 'mouse';
+                activeDevice = 'mouse';
+                updateDeviceBar();
+                handlePress();
+            }
+        });
+
+        // ────────── 核心逻辑 ──────────
+        function handlePress() {
+            switch (state) {
+                case STATE.IDLE:  startTest(); break;
+                case STATE.WAITING: tooEarlyPress(); break;
+                case STATE.GO:    recordReaction(); break;
+            }
+        }
+
+        function startTest() {
+            state = STATE.IDLE;
+            trialIndex = 0;
+            reactionTimes = [];
+            tooEarly = false;
+            resultsShowing = false;
+            // 记录本次测试使用的手柄
+            usedControllerName = getActiveControllerDisplayName() || getInputMethodName();
+            finalResult.style.display = 'none';
+            resultsPanel.innerHTML = '';
+            for (let i = 0; i < TOTAL_TRIALS; i++) {
+                document.getElementById('dot' + i).className = 'progress-dot';
+            }
+            startPolling();
+            beginTrial();
+        }
+
+        function getInputMethodName() {
+            return getActiveControllerDisplayName() || t('keyboardMouse');
+        }
+
+        function beginTrial() {
+            if (trialIndex >= TOTAL_TRIALS) {
+                finishTest();
+                return;
+            }
+
+            tooEarly = false;
+            state = STATE.READY;
+
+            for (let i = 0; i < TOTAL_TRIALS; i++) {
+                document.getElementById('dot' + i).classList.remove('current');
+            }
+            document.getElementById('dot' + trialIndex).classList.add('current');
+
+            testArea.style.backgroundColor = '#c0392b';
+            stateText.textContent = t('waitGreen');
+            stateText.className = 'state-text state-ready';
+            resultsPanel.innerHTML = '';
+
+            const delay = 1500 + Math.random() * 3500;
+            waitTimeout = setTimeout(() => { goGreen(); }, delay);
+        }
+
+        function goGreen() {
+            state = STATE.GO;
+            goTimestamp = performance.now();
+            testArea.style.backgroundColor = '#27ae60';
+            stateText.textContent = t('pressNow');
+            stateText.className = 'state-text state-go';
+        }
+
+        function tooEarlyPress() {
+            if (waitTimeout) { clearTimeout(waitTimeout); waitTimeout = null; }
+            tooEarly = true;
+            state = STATE.RESULT;
+
+            testArea.style.backgroundColor = '#e74c3c';
+            stateText.textContent = t('tooEarly');
+            stateText.className = 'state-text state-too-early';
+            testArea.classList.add('flash-warning');
+            setTimeout(() => testArea.classList.remove('flash-warning'), 500);
+
+            document.getElementById('dot' + trialIndex).classList.add('too-early');
+            document.getElementById('dot' + trialIndex).classList.remove('current');
+
+            setTimeout(() => { beginTrial(); }, 1500);
+        }
+
+        function recordReaction() {
+            if (waitTimeout) { clearTimeout(waitTimeout); waitTimeout = null; }
+
+            const reactionMs = Math.round(performance.now() - goTimestamp);
+            reactionTimes.push(reactionMs);
+            state = STATE.RESULT;
+
+            testArea.style.backgroundColor = '#2c3e50';
+            stateText.textContent = reactionMs + ' ms';
+            stateText.className = 'state-text state-result';
+
+            let timeClass = '';
+            if (reactionMs < 200) timeClass = 'fast';
+            else if (reactionMs > 350) timeClass = 'slow';
+            resultsPanel.innerHTML =
+                '<span class="result-time ' + timeClass + '">' + reactionMs + '</span>' +
+                '<span class="result-unit"> ms</span>';
+
+            document.getElementById('dot' + trialIndex).classList.add('done');
+            document.getElementById('dot' + trialIndex).classList.remove('current');
+
+            trialIndex++;
+
+            setTimeout(() => { beginTrial(); }, 1200);
+        }
+
+        function finishTest() {
+            state = STATE.IDLE;
+            resultsShowing = true;
+            // 不停止轮询 —— 让手柄确认键可以重新开始测试
+            testArea.style.backgroundColor = '#1a1a2e';
+
+            // 根据手柄类型显示不同的按键提示
+            const confirmBtn = getConfirmButtonName(usedControllerName);
+            stateText.textContent = t('testDone') + '\n' + t('pressToRestart', confirmBtn);
+            stateText.className = 'state-text state-waiting';
+            resultsPanel.innerHTML = '';
+
+            for (let i = 0; i < TOTAL_TRIALS; i++) {
+                document.getElementById('dot' + i).classList.remove('current');
+            }
+
+            const sum = reactionTimes.reduce((a, b) => a + b, 0);
+            const avg = Math.round(sum / reactionTimes.length);
+
+            let gradeText = '';
+            if (avg < 180)      gradeText = t('grade_god');
+            else if (avg < 220) gradeText = t('grade_pro');
+            else if (avg < 260) gradeText = t('grade_good');
+            else if (avg < 310) gradeText = t('grade_normal');
+            else if (avg < 400) gradeText = t('grade_slow');
+            else                gradeText = t('grade_sleep');
+
+            avgTimeEl.textContent = avg + ' ms';
+            gradeEl.textContent = gradeText;
+            finalResult.style.display = 'block';
+
+            // ── 保存到历史记录 ──
+            saveRecord(reactionTimes.slice(), avg, usedControllerName);
+            renderHistory();
+        }
+
+        // ────────── 历史记录 ──────────
+        function saveRecord(times, avg, ctrlName) {
+            const records = loadHistory();
+            records.push({
+                id:        Date.now(),
+                timestamp: new Date().toISOString(),
+                controller: ctrlName || t('keyboardMouse'),
+                trials:    times,
+                average:   avg
+            });
+            saveHistory(records);
+        }
+
+        function deleteRecord(id) {
+            let records = loadHistory();
+            records = records.filter(r => r.id !== id);
+            saveHistory(records);
+            renderHistory();
+        }
+
+        function clearAllHistory() {
+            if (confirm(t('clearConfirm'))) {
+                saveHistory([]);
+                renderHistory();
+            }
+        }
+
+        function renderHistory() {
+            const records = loadHistory();
+
+            if (records.length === 0) {
+                historyList.innerHTML = '<p class="history-empty">' + t('historyEmpty') + '</p>';
+                clearBtn.style.display = 'none';
+                return;
+            }
+
+            clearBtn.style.display = 'block';
+
+            // 最新在前
+            const reversed = records.slice().reverse();
+            let html = '';
+
+            reversed.forEach((rec, displayIdx) => {
+                const actualIdx = records.length - displayIdx;
+                const dateStr = formatDate(rec.timestamp);
+                const min = Math.min(...rec.trials);
+                const max = Math.max(...rec.trials);
+
+                html += '<div class="record-card" id="rec-' + rec.id + '">';
+                html += '  <div class="record-header">';
+                html += '    <span class="record-index"># ' + actualIdx + '</span>';
+                html += '    <span class="record-controller"><span class="icon">🎮</span>' + escHtml(localizeModelName(rec.controller)) + '</span>';
+                html += '    <span class="record-time">' + dateStr + '</span>';
+                html += '    <span class="record-avg">' + t('avgLabel') + ' ' + rec.average + ' ms</span>';
+                html += '    <button onclick="deleteRecordById(' + rec.id + ')" style="background:none;border:1px solid #555;color:#888;padding:2px 10px;border-radius:10px;cursor:pointer;font-size:0.75rem;" title="' + t('clearHistory') + '">✕</button>';
+                html += '  </div>';
+
+                // ── 5次数据 badge ──
+                html += '  <div class="record-trials">';
+                for (let i = 0; i < rec.trials.length; i++) {
+                    let cls = '';
+                    if (rec.trials[i] === min && rec.trials[i] === max) cls = '';
+                    else if (rec.trials[i] === min) cls = ' fastest';
+                    else if (rec.trials[i] === max) cls = ' slowest';
+                    html += '    <div class="trial-badge' + cls + '">';
+                    html += '      <div class="trial-label">' + t('trialLabel', i + 1) + '</div>';
+                    html += '      <div class="trial-value">' + rec.trials[i] + '<span style="font-size:0.65rem;color:#888;"> ms</span></div>';
+                    html += '    </div>';
+                }
+                html += '  </div>';
+
+                // ── 折线图容器 ──
+                html += '  <div class="chart-container">';
+                html += '    <canvas id="chart-' + rec.id + '" data-trials="' + rec.trials.join(',') + '" data-avg="' + rec.average + '"></canvas>';
+                html += '  </div>';
+
+                html += '</div>';
+            });
+
+            historyList.innerHTML = html;
+
+            // ── 绘制所有折线图 ──
+            // 等 DOM 更新后再画
+            requestAnimationFrame(() => {
+                reversed.forEach(rec => {
+                    drawChart('chart-' + rec.id, rec.trials, rec.average);
+                });
+            });
+        }
+
+        // ────────── 折线图绘制（Canvas） ──────────
+        function drawChart(canvasId, trials, avg) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+
+            const container = canvas.parentElement;
+            const dpr = window.devicePixelRatio || 1;
+            const width  = container.clientWidth - 26;  // 减去 padding
+            const height = 160;
+
+            canvas.width  = width * dpr;
+            canvas.height = height * dpr;
+            canvas.style.width  = width + 'px';
+            canvas.style.height = height + 'px';
+
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+
+            // 边距
+            const pad = { top: 18, right: 30, bottom: 32, left: 44 };
+            const plotW = width - pad.left - pad.right;
+            const plotH = height - pad.top - pad.bottom;
+
+            // Y 轴范围：以数据范围为基准，向下取整到 50ms，上下各留 25% 边距
+            const dataMin = Math.min(...trials);
+            const dataMax = Math.max(...trials);
+            const range = dataMax - dataMin || 40;
+            const yMin = Math.max(0, Math.floor((dataMin - range * 0.3) / 10) * 10);
+            const yMax = Math.ceil((dataMax + range * 0.3) / 10) * 10;
+            const yRange = yMax - yMin;
+
+            const xFor = (i) => pad.left + (i / (TOTAL_TRIALS - 1)) * plotW;
+            const yFor = (v) => pad.top + plotH - ((v - yMin) / yRange) * plotH;
+
+            // ── 清空 ──
+            ctx.clearRect(0, 0, width, height);
+
+            // ── 网格线 ──
+            ctx.strokeStyle = '#2a2a4a';
+            ctx.lineWidth = 1;
+            const gridLines = 5;
+            for (let g = 0; g <= gridLines; g++) {
+                const yVal = yMin + (yRange / gridLines) * g;
+                const yPx = yFor(yVal);
+                ctx.beginPath();
+                ctx.moveTo(pad.left, yPx);
+                ctx.lineTo(pad.left + plotW, yPx);
+                ctx.stroke();
+
+                // Y 轴标签
+                ctx.fillStyle = '#666';
+                ctx.font = '10px "Segoe UI","Microsoft YaHei",sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText(Math.round(yVal), pad.left - 8, yPx + 4);
+            }
+
+            // X 轴标签
+            ctx.textAlign = 'center';
+            for (let i = 0; i < TOTAL_TRIALS; i++) {
+                ctx.fillStyle = '#666';
+                ctx.fillText(t('trialLabel', i + 1), xFor(i), pad.top + plotH + 18);
+            }
+
+            // ── 平均线（虚线） ──
+            ctx.strokeStyle = 'rgba(249,202,36,0.5)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            const avgY = yFor(avg);
+            ctx.beginPath();
+            ctx.moveTo(pad.left, avgY);
+            ctx.lineTo(pad.left + plotW, avgY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 平均线标签
+            ctx.fillStyle = '#f9ca24';
+            ctx.font = '10px "Segoe UI","Microsoft YaHei",sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(t('avgLabel') + ' ' + avg, pad.left + plotW, avgY - 6);
+
+            // ── 数据折线（渐变填充） ──
+            // 渐变填充区域
+            const gradient = ctx.createLinearGradient(0, pad.top, 0, pad.top + plotH);
+            gradient.addColorStop(0, 'rgba(78,205,196,0.25)');
+            gradient.addColorStop(1, 'rgba(78,205,196,0.02)');
+
+            ctx.beginPath();
+            ctx.moveTo(xFor(0), yFor(trials[0]));
+            for (let i = 1; i < TOTAL_TRIALS; i++) {
+                ctx.lineTo(xFor(i), yFor(trials[i]));
+            }
+            // 向下封闭
+            ctx.lineTo(xFor(TOTAL_TRIALS - 1), pad.top + plotH);
+            ctx.lineTo(xFor(0), pad.top + plotH);
+            ctx.closePath();
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            // 折线
+            ctx.beginPath();
+            ctx.moveTo(xFor(0), yFor(trials[0]));
+            for (let i = 1; i < TOTAL_TRIALS; i++) {
+                ctx.lineTo(xFor(i), yFor(trials[i]));
+            }
+            ctx.strokeStyle = '#4ecdc4';
+            ctx.lineWidth = 2.5;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            // ── 数据点 ──
+            for (let i = 0; i < TOTAL_TRIALS; i++) {
+                const x = xFor(i);
+                const y = yFor(trials[i]);
+
+                // 外圈发光
+                ctx.beginPath();
+                ctx.arc(x, y, 8, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(78,205,196,0.15)';
+                ctx.fill();
+
+                // 实心点
+                ctx.beginPath();
+                ctx.arc(x, y, 5, 0, Math.PI * 2);
+                const isMin = trials[i] === dataMin;
+                const isMax = trials[i] === dataMax;
+                ctx.fillStyle = isMin ? '#6ab04c' : (isMax ? '#f9ca24' : '#4ecdc4');
+                ctx.fill();
+                ctx.strokeStyle = '#1f1f3a';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // 数值标签
+                ctx.fillStyle = '#ccc';
+                ctx.font = 'bold 10px "Segoe UI","Microsoft YaHei",sans-serif';
+                ctx.textAlign = 'center';
+                const labelY = y - 14;
+                ctx.fillText(trials[i] + '', x, labelY > 10 ? labelY : y + 22);
+            }
+        }
+
+        // ────────── 工具函数 ──────────
+        function formatDate(isoStr) {
+            const d = new Date(isoStr);
+            const pad = (n) => String(n).padStart(2, '0');
+            return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+                + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+        }
+
+        function escHtml(str) {
+            const el = document.createElement('span');
+            el.textContent = str;
+            return el.innerHTML;
+        }
+
+        // ────────── 全局函数（供 onclick 调用） ──────────
+        window.deleteRecordById = function(id) {
+            deleteRecord(id);
+        };
+
+        // ────────── 重新开始按钮 ──────────
+        document.getElementById('restartBtn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            startTest();
+        });
+
+        // ────────── 清空历史按钮 ──────────
+        clearBtn.addEventListener('click', clearAllHistory);
+
+        // ────────── 窗口大小改变时重绘图表 ──────────
+        let resizeDebounce = null;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeDebounce);
+            resizeDebounce = setTimeout(() => {
+                const records = loadHistory();
+                records.forEach(rec => {
+                    drawChart('chart-' + rec.id, rec.trials, rec.average);
+                });
+            }, 250);
+        });
+
+        // ────────── 初始化 ──────────
+        function checkInitialGamepad() {
+            // pollGamepad 会在第一帧自动注册所有已连接手柄
+            startPolling();
+        }
+
+        // 初始化语言
+        currentLocale = detectLocale();
+        setLocale(currentLocale);
+
+        // 设置初始状态文字
+        stateText.textContent = t('startPrompt');
+
+        checkInitialGamepad();
+        renderHistory(); // 加载 localStorage 中的历史
+
+        console.log('🎮 反应速度测试已就绪');
+        console.log('  - 支持多手柄同时连接（Xbox / PlayStation / Switch Pro 等）');
+        console.log('  - 以最后按下按键的手柄作为当前测试设备');
+        console.log('  - 键盘后备：按空格键');
+        console.log('  - 鼠标后备：点击测试区域');
+        console.log('  - 共 ' + TOTAL_TRIALS + ' 轮测试，取平均反应时间');
+        console.log('  - 测试记录自动保存到浏览器本地存储');
+    })();
+    </script>
+</body>
+</html>
