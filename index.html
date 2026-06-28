@@ -410,6 +410,8 @@
                 title: '⏱ 反应速度测试',
                 subtitle: 'Reaction Time Test — 当屏幕变绿时按下手柄任意键',
                 startPrompt: '按手柄任意键\n或点击此处开始',
+                startPromptTouch: '按手柄任意键\n或点击屏幕开始',
+                touch: '触屏',
                 waitGreen: '等待绿色…',
                 pressNow: '快按！',
                 tooEarly: '太早了！\n等绿色出现再按',
@@ -456,6 +458,8 @@
                 title: '⏱ Reaction Time Test',
                 subtitle: 'Press any controller button when the screen turns green',
                 startPrompt: 'Press any button\nor click to start',
+                startPromptTouch: 'Press any button\nor tap the screen',
+                touch: 'Touch',
                 waitGreen: 'Wait for green…',
                 pressNow: 'PRESS NOW!',
                 tooEarly: 'Too early!\nWait for green',
@@ -502,6 +506,8 @@
                 title: '⏱ 反応速度テスト',
                 subtitle: '画面が緑に変わったらコントローラーのボタンを押してください',
                 startPrompt: 'ボタンを押すか\nクリックで開始',
+                startPromptTouch: 'ボタンを押すか\n画面をタップ',
+                touch: 'タッチ',
                 waitGreen: '緑を待つ…',
                 pressNow: '押せ！',
                 tooEarly: '早すぎ！\n緑を待って',
@@ -548,6 +554,8 @@
                 title: '⏱ Test de Temps de Réaction',
                 subtitle: 'Appuyez sur un bouton quand l\'écran devient vert',
                 startPrompt: 'Appuyez ou\ncliquez pour commencer',
+                startPromptTouch: 'Appuyez ou\ntouchez l\'écran',
+                touch: 'Tactile',
                 waitGreen: 'Attendez le vert…',
                 pressNow: 'APPUYEZ !',
                 tooEarly: 'Trop tôt !\nAttendez le vert',
@@ -594,6 +602,8 @@
                 title: '⏱ Teste de Tempo de Reação',
                 subtitle: 'Pressione qualquer botão quando a tela ficar verde',
                 startPrompt: 'Pressione ou\nclique para começar',
+                startPromptTouch: 'Pressione ou\ntoque na tela',
+                touch: 'Toque',
                 waitGreen: 'Aguarde o verde…',
                 pressNow: 'APERTE!',
                 tooEarly: 'Muito cedo!\nAguarde o verde',
@@ -640,6 +650,8 @@
                 title: '⏱ 반응 속도 테스트',
                 subtitle: '화면이 녹색으로 바뀌면 컨트롤러 버튼을 누르세요',
                 startPrompt: '버튼을 누르거나\n클릭하여 시작',
+                startPromptTouch: '버튼을 누르거나\n화면을 터치하세요',
+                touch: '터치',
                 waitGreen: '녹색을 기다리세요…',
                 pressNow: '누르세요!',
                 tooEarly: '너무 빨라요!\n녹색을 기다리세요',
@@ -686,6 +698,8 @@
                 title: '⏱ Тест на реакцию',
                 subtitle: 'Нажмите любую кнопку, когда экран станет зелёным',
                 startPrompt: 'Нажмите кнопку\nили кликните для старта',
+                startPromptTouch: 'Нажмите кнопку\nили коснитесь экрана',
+                touch: 'Сенсор',
                 waitGreen: 'Ждите зелёный…',
                 pressNow: 'ЖМИ!',
                 tooEarly: 'Слишком рано!\nЖдите зелёный',
@@ -774,9 +788,8 @@
 
         /** 更新 stateText（如果当前有固定文案的话） */
         function updateStateText() {
-            // 只在 IDLE 且不显示结果时更新提示文字
             if (state === STATE.IDLE && !resultsShowing) {
-                stateText.textContent = t('startPrompt');
+                stateText.textContent = isTouchDevice ? t('startPromptTouch') : t('startPrompt');
             }
         }
 
@@ -881,7 +894,8 @@
         let gamepadInfoMap      = new Map();   // index → { rawId, displayName }
         let knownButtonsMap     = new Map();   // index → Set of button indices
         let activeGamepadIndex  = -1;           // 最后按下的手柄 index
-        let activeDevice        = 'keyboard';   // 'keyboard' | 'mouse' | 'gamepad'
+        let activeDevice        = 'keyboard';   // 'keyboard' | 'mouse' | 'gamepad' | 'touch'
+        let isTouchDevice       = false;        // 是否为触屏设备（手机/平板）
         let anyGamepadConnected = false;
 
         // ────────── 历史记录存储（localStorage） ──────────
@@ -1013,13 +1027,18 @@
             }
         }
 
-        /** 渲染顶部设备栏：键盘 + 所有手柄，高亮最后使用的设备 */
+        /** 渲染顶部设备栏：触屏/键盘 + 所有手柄，高亮最后使用的设备 */
         function updateDeviceBar() {
             let html = '';
 
-            // ── 键盘 pill ──
-            const kbActive = (activeDevice === 'keyboard' || activeDevice === 'mouse');
-            html += '<span class="device-pill' + (kbActive ? ' active' : '') + '" title="' + t('keyboard') + ' / ' + t('btnSpace') + '">⌨️ ' + t('keyboard') + '</span>';
+            // ── 输入设备 pill：触屏设备显示📱，桌面设备显示⌨️ ──
+            if (isTouchDevice) {
+                const touchActive = (activeDevice === 'touch' || activeDevice === 'mouse');
+                html += '<span class="device-pill' + (touchActive ? ' active' : '') + '" title="' + t('touch') + '">📱 ' + t('touch') + '</span>';
+            } else {
+                const kbActive = (activeDevice === 'keyboard' || activeDevice === 'mouse');
+                html += '<span class="device-pill' + (kbActive ? ' active' : '') + '" title="' + t('keyboard') + ' / ' + t('btnSpace') + '">⌨️ ' + t('keyboard') + '</span>';
+            }
 
             // ── 手柄 pills ──
             for (let [gi, info] of gamepadInfoMap) {
@@ -1230,21 +1249,45 @@
 
         testArea.addEventListener('click', (e) => {
             e.stopPropagation();
+            // 触屏设备上 touchstart 已处理，跳过 click 避免双击
+            if (isTouchDevice) return;
             inputUsed = 'mouse';
             activeDevice = 'mouse';
             updateDeviceBar();
             handlePress();
         });
 
+        // 触屏事件：手机上点击测试区域
+        testArea.addEventListener('touchstart', (e) => {
+            e.stopPropagation();
+            inputUsed = 'touch';
+            activeDevice = 'touch';
+            updateDeviceBar();
+            handlePress();
+        }, { passive: true });
+
         document.addEventListener('click', (e) => {
             if (state === STATE.IDLE && e.target !== testArea && !testArea.contains(e.target)
-                && !e.target.closest('.history-section') && !e.target.closest('.final-result')) {
+                && !e.target.closest('.history-section') && !e.target.closest('.final-result')
+                && !e.target.closest('.top-bar')) {
+                if (isTouchDevice) return;
                 inputUsed = 'mouse';
                 activeDevice = 'mouse';
                 updateDeviceBar();
                 handlePress();
             }
         });
+
+        document.addEventListener('touchstart', (e) => {
+            if (state === STATE.IDLE && e.target !== testArea && !testArea.contains(e.target)
+                && !e.target.closest('.history-section') && !e.target.closest('.final-result')
+                && !e.target.closest('.top-bar')) {
+                inputUsed = 'touch';
+                activeDevice = 'touch';
+                updateDeviceBar();
+                handlePress();
+            }
+        }, { passive: true });
 
         // ────────── 核心逻辑 ──────────
         function handlePress() {
@@ -1273,7 +1316,8 @@
         }
 
         function getInputMethodName() {
-            return getActiveControllerDisplayName() || t('keyboardMouse');
+            if (getActiveControllerDisplayName()) return getActiveControllerDisplayName();
+            return isTouchDevice ? t('touch') : t('keyboardMouse');
         }
 
         function beginTrial() {
@@ -1658,6 +1702,13 @@
         });
 
         // ────────── 初始化 ──────────
+        /** 检测是否为触屏设备 */
+        function detectTouchDevice() {
+            return ('ontouchstart' in window) ||
+                (navigator.maxTouchPoints > 0) ||
+                (navigator.msMaxTouchPoints > 0);
+        }
+
         function checkInitialGamepad() {
             // pollGamepad 会在第一帧自动注册所有已连接手柄
             startPolling();
@@ -1667,8 +1718,15 @@
         currentLocale = detectLocale();
         setLocale(currentLocale);
 
+        // 检测触屏设备
+        isTouchDevice = detectTouchDevice();
+        if (isTouchDevice) {
+            activeDevice = 'touch';
+            console.log('📱 检测到触屏设备');
+        }
+
         // 设置初始状态文字
-        stateText.textContent = t('startPrompt');
+        stateText.textContent = isTouchDevice ? t('startPromptTouch') : t('startPrompt');
 
         checkInitialGamepad();
         renderHistory(); // 加载 localStorage 中的历史
