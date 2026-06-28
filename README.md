@@ -2,7 +2,7 @@
 
 A browser-based reaction time tester inspired by Human Benchmark. Press any button on your gamepad (or keyboard) the moment the screen turns from red to green — measure your reflexes across 5 trials.
 
-**[▶ Try it now](https://whkong.github.io/humantion-reaction-with-controller/)**
+**[▶ Try it now](https://kwh3884858.github.io/humantion-reaction-with-controller/)**
 
 ## Features
 
